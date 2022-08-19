@@ -1,0 +1,9 @@
+{
+    "files.associations": {
+        "syscall.h": "c",
+        "user.h": "c",
+        "proc.h": "c",
+        "sysinfo.h": "c",
+        "spinlock.h": "c"
+    }
+}
