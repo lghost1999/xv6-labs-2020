@@ -28,6 +28,7 @@ void            consputc(int);
 
 // exec.c
 int             exec(char*, char**);
+void            vmprint(pagetable_t pagetable);
 
 // file.c
 struct file*    filealloc(void);
@@ -159,6 +160,12 @@ int             uartgetc(void);
 
 // vm.c
 void            kvminit(void);
+
+pagetable_t     process_kernel_page_init();
+void            uvmmap(pagetable_t pagetablt, uint64 va, uint64 sz, uint64 pa, int perm);
+void            free_process_kernel_page(pagetable_t pagetable);
+void            uvm2kvmcopy(pagetable_t kernel_pagetable, pagetable_t pagetable, uint64 oldsz, uint64 newsz);
+
 void            kvminithart(void);
 uint64          kvmpa(uint64);
 void            kvmmap(uint64, uint64, uint64, int);
@@ -223,3 +230,8 @@ int             sockread(struct sock *, uint64, int);
 int             sockwrite(struct sock *, uint64, int);
 void            sockrecvudp(struct mbuf*, uint32, uint16, uint16);
 #endif
+
+
+// vmcopyin.c
+int             copyin_new(pagetable_t, char*, uint64, uint64);
+int             copyinstr_new(pagetable_t, char*, uint64, uint64);

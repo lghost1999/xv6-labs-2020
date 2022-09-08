@@ -75,6 +75,8 @@ exec(char *path, char **argv)
   sp = sz;
   stackbase = sp - PGSIZE;
 
+  uvm2kvmcopy(p->kernel_pagetable, pagetable, 0, sz);
+
   // Push argument strings, prepare rest of stack in ustack.
   for(argc = 0; argv[argc]; argc++) {
     if(argc >= MAXARG)
@@ -116,6 +118,8 @@ exec(char *path, char **argv)
   p->trapframe->sp = sp; // initial stack pointer
   proc_freepagetable(oldpagetable, oldsz);
 
+  if(p->pid==1) vmprint(p->pagetable);
+
   return argc; // this ends up in a0, the first argument to main(argc, argv)
 
  bad:
@@ -154,4 +158,28 @@ loadseg(pagetable_t pagetable, uint64 va, struct inode *ip, uint offset, uint sz
   }
   
   return 0;
+}
+
+void 
+vmprint_helper(int level, pagetable_t pagetable) {
+  if(level > 2) return;
+
+  pte_t *pte;
+  for(int i = 0; i < 1 << 9; i++) {
+    pte = &pagetable[i];
+    if(*pte & PTE_V) {
+      for(int i = 0; i <=level; i++) {
+        if(i != 0) printf(" ");
+        printf(".."); 
+      }
+      printf("%d: pte %p pa %p\n", i, *pte, PTE2PA(*pte));
+      vmprint_helper(level + 1, (pagetable_t)PTE2PA(*pte));
+    }
+  }
+}
+
+void 
+vmprint(pagetable_t pagetable) {
+  printf("page table %p\n", pagetable);
+  vmprint_helper(0, pagetable);
 }
