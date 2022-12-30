@@ -5,6 +5,10 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "sleeplock.h"
+#include "fs.h"
+#include "file.h"
+#include "fcntl.h"
 
 struct spinlock tickslock;
 uint ticks;
@@ -65,6 +69,45 @@ usertrap(void)
     intr_on();
 
     syscall();
+  } else if(r_scause() == 13 || r_scause() == 15){
+    uint64 va = r_stval();
+    if(va >= p->sz || va < p->trapframe->sp) {
+      p->killed = 1;
+    } else {
+      int i;
+      for (i = 0; i < 16; i++) {
+        if (p->vmas[i].valid) {
+          if (p->vmas[i].addr <= va && (p->vmas[i].addr + p->vmas[i].length) > va)
+            break;
+        }
+      }
+
+      if(i == 16) {
+        p->killed = 1;
+      } else {
+        uint64 mem = (uint64) kalloc();
+        if (mem == 0){
+          p->killed = 1;
+        } else {
+          memset((void *)mem, 0, PGSIZE);
+          va = PGROUNDDOWN(va);
+
+          ilock(p->vmas[i].mapped_file->ip);
+          readi(p->vmas[i].mapped_file->ip, 0, mem, va - p->vmas[i].addr, PGSIZE);
+          iunlock(p->vmas[i].mapped_file->ip);
+
+          int flags = PTE_U;
+          if(p->vmas[i].prot & PROT_READ) flags |= PTE_R;
+          if(p->vmas[i].prot & PROT_WRITE) flags |= PTE_W;
+          if(p->vmas[i].prot & PROT_EXEC) flags |= PTE_X;
+
+          if(mappages(p->pagetable, va, PGSIZE, mem, flags) != 0) {
+            kfree((void *)mem);
+            p->killed = 1;
+          }
+        }
+      }
+    }
   } else if((which_dev = devintr()) != 0){
     // ok
   } else {
